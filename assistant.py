@@ -11,69 +11,74 @@ DB_FILE = "chat_history.json"
 
 # --- 2. 联网搜索工具 ---
 def get_web_info(query):
-    """通过 Tavily 搜索网页"""
     url = "https://api.tavily.com/search"
-    data = {
-        "api_key": TAVILY_KEY,
-        "query": query,
-        "search_depth": "basic",
-        "max_results": 3
-    }
+    data = {"api_key": TAVILY_KEY, "query": query, "search_depth": "basic", "max_results": 3}
     try:
         response = requests.post(url, json=data, timeout=10)
         results = response.json().get("results", [])
-        # 提取网页内容
-        context = "\n".join([f"来源: {r['url']}\n摘要: {r['content']}" for r in results])
-        return context
-    except Exception as e:
-        return f"联网失败: {e}"
+        return "\n".join([f"来源: {r['url']}\n摘要: {r['content']}" for r in results])
+    except:
+        return "联网搜索暂时不可用。"
 
-# --- 3. 基础逻辑（加载记忆等保持不变） ---
+# --- 3. 记忆存取逻辑 ---
 def load_history():
     if os.path.exists(DB_FILE):
         with open(DB_FILE, "r", encoding="utf-8") as f: return json.load(f)
-    return [{"role": "system", "content": "你是一个拥有联网能力的专家。当资料里有最新背景时，请结合回答。"}]
+    return [{"role": "system", "content": "你是一个既能联网又能分析文件的全能助手。"}]
 
 if "messages" not in st.session_state:
     st.session_state.messages = load_history()
 
-# --- 4. 侧边栏 ---
+# --- 4. 侧边栏：【功能合集】 ---
 with st.sidebar:
     st.title("⚡ 增强中心")
-    is_web_enabled = st.toggle("开启联网搜索", value=True)
-    if st.button("清空记忆"):
+    
+    # 联网开关
+    is_web_enabled = st.toggle("🌍 开启联网搜索", value=True)
+    
+    st.divider()
+    
+    # --- 找回失去的文件上传功能 ---
+    st.header("📁 文件中心")
+    uploaded_file = st.file_uploader("上传一个文本文件 (.txt, .py, .md)", type=['txt', 'py', 'md'])
+    if uploaded_file and st.button("喂给 AI 学习"):
+        content = uploaded_file.read().decode("utf-8")
+        # 把文件内容作为一条特殊的背景信息存入记忆
+        st.session_state.messages.append({"role": "user", "content": f"【上传文件背景】：\n{content}"})
+        st.success("文件内容已加载到脑子里了！")
+
+    st.divider()
+    if st.button("🗑️ 清空记忆"):
         st.session_state.messages = []
         if os.path.exists(DB_FILE): os.remove(DB_FILE)
         st.rerun()
 
-# --- 5. 聊天主逻辑 ---
+# --- 5. 对话展示 ---
 for m in st.session_state.messages:
-    if m["role"] != "system":
+    if m["role"] != "system" and not m["content"].startswith("【上传文件背景】："):
         with st.chat_message(m["role"]): st.markdown(m["content"])
 
-if prompt := st.chat_input("问点最新的？"):
+# --- 6. 核心对话逻辑 ---
+if prompt := st.chat_input("问问最新的，或者聊聊文件内容？"):
     with st.chat_message("user"): st.markdown(prompt)
     
-    # 构建发给 AI 的最终提示词
-    final_context = ""
+    final_prompt = prompt
+    # 如果开启联网，先去抓数据
     if is_web_enabled:
-        with st.status("🌐 正在全网搜寻相关信息...", expanded=False):
+        with st.status("🔍 正在全网搜寻...", expanded=False):
             web_results = get_web_info(prompt)
-            final_context = f"【最新网页资料】:\n{web_results}\n\n请结合以上资料回答用户：{prompt}"
-            st.write("🔍 搜索完成，正在深度分析...")
-    else:
-        final_context = prompt
-
+            final_prompt = f"【参考搜索资料】:\n{web_results}\n\n【用户问题】: {prompt}"
+    
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-    # 发送给 DeepSeek
     with st.chat_message("assistant"):
         placeholder = st.empty()
         full_res = ""
         headers = {"Authorization": f"Bearer {DEEPSEEK_KEY}", "Content-Type": "application/json"}
+        # 注意：发送给 AI 时，要包含之前的记忆（包括文件背景）
         payload = {
             "model": "deepseek-chat",
-            "messages": st.session_state.messages[:-1] + [{"role": "user", "content": final_context}],
+            "messages": st.session_state.messages[:-1] + [{"role": "user", "content": final_prompt}],
             "stream": True
         }
         r = requests.post(BASE_URL, headers=headers, json=payload, stream=True)
@@ -88,3 +93,5 @@ if prompt := st.chat_input("问点最新的？"):
                 except: continue
         placeholder.markdown(full_res)
         st.session_state.messages.append({"role": "assistant", "content": full_res})
+        with open(DB_FILE, "w", encoding="utf-8") as f:
+            json.dump(st.session_state.messages, f, ensure_ascii=False, indent=2)
