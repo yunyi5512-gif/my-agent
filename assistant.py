@@ -3,116 +3,88 @@ import requests
 import json
 import os
 
-# --- 1. 基础配置 ---
-st.set_page_config(page_title="霄的 AI 实验室", page_icon="📂")
-st.title("📂 文件分析版 AI Agent")
-
-API_KEY = os.getenv("OPENAI_API_KEY")
-if not API_KEY:
-    st.error("❌ 未检测到环境变量 OPENAI_API_KEY，请检查系统设置！")
-    st.stop()
+# --- 1. 配置区 ---
+DEEPSEEK_KEY = os.getenv("OPENAI_API_KEY")
+TAVILY_KEY = os.getenv("TAVILY_API_KEY")
 BASE_URL = "https://api.deepseek.com/chat/completions"
 DB_FILE = "chat_history.json"
 
-# --- 2. 记忆存取逻辑 ---
+# --- 2. 联网搜索工具 ---
+def get_web_info(query):
+    """通过 Tavily 搜索网页"""
+    url = "https://api.tavily.com/search"
+    data = {
+        "api_key": TAVILY_KEY,
+        "query": query,
+        "search_depth": "basic",
+        "max_results": 3
+    }
+    try:
+        response = requests.post(url, json=data, timeout=10)
+        results = response.json().get("results", [])
+        # 提取网页内容
+        context = "\n".join([f"来源: {r['url']}\n摘要: {r['content']}" for r in results])
+        return context
+    except Exception as e:
+        return f"联网失败: {e}"
+
+# --- 3. 基础逻辑（加载记忆等保持不变） ---
 def load_history():
     if os.path.exists(DB_FILE):
-        with open(DB_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return [{"role": "system", "content": "你是一个专业的代码助手。"}]
-
-def save_history(history):
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(history, f, ensure_ascii=False, indent=2)
+        with open(DB_FILE, "r", encoding="utf-8") as f: return json.load(f)
+    return [{"role": "system", "content": "你是一个拥有联网能力的专家。当资料里有最新背景时，请结合回答。"}]
 
 if "messages" not in st.session_state:
     st.session_state.messages = load_history()
 
-# --- 3. 侧边栏：【新增】文件上传功能 ---
+# --- 4. 侧边栏 ---
 with st.sidebar:
-    st.header("📁 文件中心")
-    uploaded_file = st.file_uploader("上传一个文本文件 (.txt, .py, .md)", type=['txt', 'py', 'md'])
-    
-    if uploaded_file is not None:
-        # 读取文件内容
-        content = uploaded_file.read().decode("utf-8")
-        st.success("文件读取成功！")
-        if st.button("让 AI 学习这个文件"):
-            # 将文件内容作为背景知识喂给 AI
-            file_info = f"【已知文件内容如下】：\n{content}\n---"
-            st.session_state.messages.append({"role": "user", "content": file_info})
-            st.write("✅ 已将文件内容存入当前上下文")
-
-    st.divider()
-    if st.button("彻底格式化记忆"):
+    st.title("⚡ 增强中心")
+    is_web_enabled = st.toggle("开启联网搜索", value=True)
+    if st.button("清空记忆"):
+        st.session_state.messages = []
         if os.path.exists(DB_FILE): os.remove(DB_FILE)
-        st.session_state.messages = [{"role": "system", "content": "你是一个专业的代码助手。"}]
         st.rerun()
 
-# --- 4. 聊天界面渲染 ---
-for message in st.session_state.messages:
-    if message["role"] != "system" and not message["content"].startswith("【已知文件内容"):
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+# --- 5. 聊天主逻辑 ---
+for m in st.session_state.messages:
+    if m["role"] != "system":
+        with st.chat_message(m["role"]): st.markdown(m["content"])
 
-# --- 5. 对话逻辑 (打字机效果版) ---
-if prompt := st.chat_input("说点什么？"):
-    # 在界面展示用户消息
-    with st.chat_message("user"):
-        st.markdown(prompt)
+if prompt := st.chat_input("问点最新的？"):
+    with st.chat_message("user"): st.markdown(prompt)
+    
+    # 构建发给 AI 的最终提示词
+    final_context = ""
+    if is_web_enabled:
+        with st.status("🌐 正在全网搜寻相关信息...", expanded=False):
+            web_results = get_web_info(prompt)
+            final_context = f"【最新网页资料】:\n{web_results}\n\n请结合以上资料回答用户：{prompt}"
+            st.write("🔍 搜索完成，正在深度分析...")
+    else:
+        final_context = prompt
+
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-    # 展示 AI 消息容器
+    # 发送给 DeepSeek
     with st.chat_message("assistant"):
-        # 创建一个流式处理的占位符
-        response_placeholder = st.empty()
-        full_response = ""
-        
-        try:
-            headers = {"Authorization": f"Bearer {API_KEY}"}
-            payload = {
-                "model": "deepseek-chat",
-                "messages": st.session_state.messages,
-                "temperature": 0.7,
-                "stream": True # 💡 关键：开启流式传输
-            }
-            
-            # 发送请求
-            response = requests.post(BASE_URL, headers=headers, json=payload, stream=True, timeout=60)
-            
-            if response.status_code == 200:
-                # 遍历响应流
-                for line in response.iter_lines():
-                    if line:
-                        # 去掉前面的 "data: " 前缀
-                        line_data = line.decode("utf-8")
-                        if line_data.startswith("data: "):
-                            line_data = line_data[6:]
-                        
-                        # 如果收到 [DONE] 说明结束了
-                        if line_data == "[DONE]":
-                            break
-                        
-                        try:
-                            chunk = json.loads(line_data)
-                            if "choices" in chunk and len(chunk["choices"]) > 0:
-                                delta = chunk["choices"][0].get("delta", {})
-                                if "content" in delta:
-                                    content = delta["content"]
-                                    full_response += content
-                                    # 💡 实时更新界面上的文字，形成打字机效果
-                                    response_placeholder.markdown(full_response + "▌")
-                        except json.JSONDecodeError:
-                            continue
-                
-                # 最后去掉光标，完整显示
-                response_placeholder.markdown(full_response)
-                
-                # 存入记忆并存盘
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
-                save_history(st.session_state.messages)
-            else:
-                st.error(f"API 报错: {response.status_code}")
-                
-        except Exception as e:
-            st.error(f"发生错误: {e}")
+        placeholder = st.empty()
+        full_res = ""
+        headers = {"Authorization": f"Bearer {DEEPSEEK_KEY}", "Content-Type": "application/json"}
+        payload = {
+            "model": "deepseek-chat",
+            "messages": st.session_state.messages[:-1] + [{"role": "user", "content": final_context}],
+            "stream": True
+        }
+        r = requests.post(BASE_URL, headers=headers, json=payload, stream=True)
+        for line in r.iter_lines():
+            if line:
+                decoded = line.decode("utf-8").replace("data: ", "")
+                if decoded == "[DONE]": break
+                try:
+                    content = json.loads(decoded)["choices"][0]["delta"].get("content", "")
+                    full_res += content
+                    placeholder.markdown(full_res + "▌")
+                except: continue
+        placeholder.markdown(full_res)
+        st.session_state.messages.append({"role": "assistant", "content": full_res})
