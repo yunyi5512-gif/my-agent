@@ -4,13 +4,32 @@ import json
 import os
 
 # --- 1. 配置区 ---
-DEEPSEEK_KEY = os.getenv("OPENAI_API_KEY")
+DEEPSEEK_KEY = os.getenv("DEEPSEEK_API_KEY")
 TAVILY_KEY = os.getenv("TAVILY_API_KEY")
 BASE_URL = "https://api.deepseek.com/chat/completions"
 DB_FILE = "chat_history.json"
 
-# --- 2. 联网搜索工具 ---
+# --- 2. 工具函数 (必须放在主逻辑前面) ---
+
+def check_intent(user_query):
+    """意图识别：判断是否需要联网"""
+    headers = {"Authorization": f"Bearer {DEEPSEEK_KEY}", "Content-Type": "application/json"}
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "system", "content": "你是一个意图分类器。如果用户的问题涉及实时新闻、天气、最近发生的事件、或需要搜索才能回答的信息，请只回复'YES'，否则只回复'NO'。"},
+            {"role": "user", "content": user_query}
+        ],
+        "max_tokens": 5
+    }
+    try:
+        r = requests.post(BASE_URL, headers=headers, json=payload, timeout=5)
+        return "YES" in r.json()["choices"][0]["message"]["content"].strip().upper()
+    except:
+        return False
+
 def get_web_info(query):
+    """联网搜索"""
     url = "https://api.tavily.com/search"
     data = {"api_key": TAVILY_KEY, "query": query, "search_depth": "basic", "max_results": 3}
     try:
@@ -20,109 +39,76 @@ def get_web_info(query):
     except:
         return "联网搜索暂时不可用。"
 
-# --- 3. 记忆存取逻辑 ---
 def load_history():
     if os.path.exists(DB_FILE):
         with open(DB_FILE, "r", encoding="utf-8") as f: return json.load(f)
     return [{"role": "system", "content": "你是一个既能联网又能分析文件的全能助手。"}]
 
+# --- 3. 页面初始化 ---
 if "messages" not in st.session_state:
     st.session_state.messages = load_history()
 
-# --- 4. 侧边栏：【功能合集】 ---
+# --- 4. 侧边栏 ---
 with st.sidebar:
     st.title("⚡ 增强中心")
-    
-    # 联网开关
-    is_web_enabled = st.toggle("🌍 开启联网搜索", value=True)
+    is_web_enabled = st.toggle("🌍 开启自动意图联网", value=True)
     
     st.divider()
-    
-    # --- 找回失去的文件上传功能 ---
     st.header("📁 文件中心")
-    uploaded_file = st.file_uploader("上传一个文本文件 (.txt, .py, .md)", type=['txt', 'py', 'md'])
+    uploaded_file = st.file_uploader("上传文本文件", type=['txt', 'py', 'md'])
     if uploaded_file and st.button("喂给 AI 学习"):
         content = uploaded_file.read().decode("utf-8")
-        # 把文件内容作为一条特殊的背景信息存入记忆
-        st.session_state.messages.append({"role": "user", "content": f"【上传文件背景】：\n{content}"})
-        st.success("文件内容已加载到脑子里了！")
+        st.session_state.messages.append({"role": "user", "content": f"【文件背景】：\n{content}"})
+        st.success("文件已加载！")
 
-    st.divider()
     if st.button("🗑️ 清空记忆"):
-        st.session_state.messages = []
+        st.session_state.messages = [st.session_state.messages[0]]
         if os.path.exists(DB_FILE): os.remove(DB_FILE)
         st.rerun()
 
-# --- 5. 对话展示 ---
+# --- 5. 聊天主界面 ---
 for m in st.session_state.messages:
-    if m["role"] != "system" and not m["content"].startswith("【上传文件背景】："):
+    if m["role"] != "system" and not m["content"].startswith("【文件背景】："):
         with st.chat_message(m["role"]): st.markdown(m["content"])
 
-# --- 6. 核心对话逻辑 ---
-if prompt := st.chat_input("问问最新的，或者聊聊文件内容？"):
-    # --- A. 展示用户消息 ---
-    with st.chat_message("user"):
-        st.markdown(prompt)
+if prompt := st.chat_input("说点什么？"):
+    with st.chat_message("user"): st.markdown(prompt)
     
-    # --- B. 意图识别与资料准备 ---
-    final_prompt = prompt  # 默认就是原提问
-    should_search = False
-    
+    final_prompt = prompt
+    # 自动识别是否需要联网
     if is_web_enabled:
         with st.spinner("🧠 正在思考是否需要联网..."):
-            should_search = check_intent(prompt)
-    
-    if should_search:
-        with st.status("🌐 AI 觉得这事儿得联网搜搜...", expanded=False):
-            web_results = get_web_info(prompt)
-            # 只有联网时，才构造带背景的 final_prompt
-            final_prompt = f"【参考搜索资料】:\n{web_results}\n\n【用户问题】: {prompt}"
-            st.write("🔍 搜到了，正在准备回答...")
+            if check_intent(prompt):
+                with st.status("🌐 AI 决定联网搜搜...", expanded=False):
+                    web_results = get_web_info(prompt)
+                    final_prompt = f"【参考资料】:\n{web_results}\n\n【用户问题】: {prompt}"
+                    st.write("🔍 搜到了！")
 
-    # --- C. 存入用户原始问题到记忆 (不带搜索垃圾，保持记忆干净) ---
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-    # --- D. 发起 AI 请求并展示流式回答 ---
     with st.chat_message("assistant"):
         placeholder = st.empty()
         full_res = ""
-        
-        # 1. 准备请求头和载荷
-        headers = {
-            "Authorization": f"Bearer {DEEPSEEK_KEY}", 
-            "Content-Type": "application/json"
-        }
-        # 构造发送给 AI 的完整上下文：之前的对话 + 本次带资料的 Prompt
+        headers = {"Authorization": f"Bearer {DEEPSEEK_KEY}", "Content-Type": "application/json"}
         payload = {
             "model": "deepseek-chat",
             "messages": st.session_state.messages[:-1] + [{"role": "user", "content": final_prompt}],
             "stream": True
         }
-        
         try:
-            # 2. 正式发送请求
-            r = requests.post(BASE_URL, headers=headers, json=payload, stream=True, timeout=15)
-            
-            # 3. 流式读取并渲染
+            r = requests.post(BASE_URL, headers=headers, json=payload, stream=True)
             for line in r.iter_lines():
                 if line:
                     decoded = line.decode("utf-8").replace("data: ", "")
-                    if decoded == "[DONE]": 
-                        break
+                    if decoded == "[DONE]": break
                     try:
                         content = json.loads(decoded)["choices"][0]["delta"].get("content", "")
                         full_res += content
                         placeholder.markdown(full_res + "▌")
-                    except:
-                        continue
-            
-            # 4. 回答完毕，去掉光标
+                    except: continue
             placeholder.markdown(full_res)
-            
-            # --- E. 存入 AI 回答到记忆并保存文件 ---
             st.session_state.messages.append({"role": "assistant", "content": full_res})
             with open(DB_FILE, "w", encoding="utf-8") as f:
                 json.dump(st.session_state.messages, f, ensure_ascii=False, indent=2)
-                
         except Exception as e:
-            st.error(f"❌ 通讯发生错误: {e}")
+            st.error(f"连接失败: {e}")
