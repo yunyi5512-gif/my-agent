@@ -60,38 +60,69 @@ for m in st.session_state.messages:
 
 # --- 6. 核心对话逻辑 ---
 if prompt := st.chat_input("问问最新的，或者聊聊文件内容？"):
-    with st.chat_message("user"): st.markdown(prompt)
+    # --- A. 展示用户消息 ---
+    with st.chat_message("user"):
+        st.markdown(prompt)
     
-    final_prompt = prompt
-    # 如果开启联网，先去抓数据
+    # --- B. 意图识别与资料准备 ---
+    final_prompt = prompt  # 默认就是原提问
+    should_search = False
+    
     if is_web_enabled:
-        with st.status("🔍 正在全网搜寻...", expanded=False):
-            web_results = get_web_info(prompt)
-            final_prompt = f"【参考搜索资料】:\n{web_results}\n\n【用户问题】: {prompt}"
+        with st.spinner("🧠 正在思考是否需要联网..."):
+            should_search = check_intent(prompt)
     
+    if should_search:
+        with st.status("🌐 AI 觉得这事儿得联网搜搜...", expanded=False):
+            web_results = get_web_info(prompt)
+            # 只有联网时，才构造带背景的 final_prompt
+            final_prompt = f"【参考搜索资料】:\n{web_results}\n\n【用户问题】: {prompt}"
+            st.write("🔍 搜到了，正在准备回答...")
+
+    # --- C. 存入用户原始问题到记忆 (不带搜索垃圾，保持记忆干净) ---
     st.session_state.messages.append({"role": "user", "content": prompt})
 
+    # --- D. 发起 AI 请求并展示流式回答 ---
     with st.chat_message("assistant"):
         placeholder = st.empty()
         full_res = ""
-        headers = {"Authorization": f"Bearer {DEEPSEEK_KEY}", "Content-Type": "application/json"}
-        # 注意：发送给 AI 时，要包含之前的记忆（包括文件背景）
+        
+        # 1. 准备请求头和载荷
+        headers = {
+            "Authorization": f"Bearer {DEEPSEEK_KEY}", 
+            "Content-Type": "application/json"
+        }
+        # 构造发送给 AI 的完整上下文：之前的对话 + 本次带资料的 Prompt
         payload = {
             "model": "deepseek-chat",
             "messages": st.session_state.messages[:-1] + [{"role": "user", "content": final_prompt}],
             "stream": True
         }
-        r = requests.post(BASE_URL, headers=headers, json=payload, stream=True)
-        for line in r.iter_lines():
-            if line:
-                decoded = line.decode("utf-8").replace("data: ", "")
-                if decoded == "[DONE]": break
-                try:
-                    content = json.loads(decoded)["choices"][0]["delta"].get("content", "")
-                    full_res += content
-                    placeholder.markdown(full_res + "▌")
-                except: continue
-        placeholder.markdown(full_res)
-        st.session_state.messages.append({"role": "assistant", "content": full_res})
-        with open(DB_FILE, "w", encoding="utf-8") as f:
-            json.dump(st.session_state.messages, f, ensure_ascii=False, indent=2)
+        
+        try:
+            # 2. 正式发送请求
+            r = requests.post(BASE_URL, headers=headers, json=payload, stream=True, timeout=15)
+            
+            # 3. 流式读取并渲染
+            for line in r.iter_lines():
+                if line:
+                    decoded = line.decode("utf-8").replace("data: ", "")
+                    if decoded == "[DONE]": 
+                        break
+                    try:
+                        content = json.loads(decoded)["choices"][0]["delta"].get("content", "")
+                        full_res += content
+                        placeholder.markdown(full_res + "▌")
+                    except:
+                        continue
+            
+            # 4. 回答完毕，去掉光标
+            placeholder.markdown(full_res)
+            
+            # --- E. 存入 AI 回答到记忆并保存文件 ---
+            st.session_state.messages.append({"role": "assistant", "content": full_res})
+            with open(DB_FILE, "w", encoding="utf-8") as f:
+                json.dump(st.session_state.messages, f, ensure_ascii=False, indent=2)
+                
+        except Exception as e:
+            st.error(f"❌ 通讯发生错误: {e}")
