@@ -4,7 +4,7 @@ import json
 import os
 
 # --- 1. 配置区 ---
-DEEPSEEK_KEY = os.getenv("DEEPSEEK_API_KEY")
+DEEPSEEK_KEY = os.getenv("OPENAI_API_KEY")
 TAVILY_KEY = os.getenv("TAVILY_API_KEY")
 BASE_URL = "https://api.deepseek.com/chat/completions"
 DB_FILE = "chat_history.json"
