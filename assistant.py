@@ -14,18 +14,43 @@ st.set_page_config(
 # ===== 2. 自定义高级 CSS =====
 st.markdown("""
 <style>
-    :root { --primary-color: #6366f1; --bg-dark: #0f172a; --card-bg: #1e293b; }
-    #MainMenu {visibility: hidden;} footer {visibility: hidden;}
+    /* 1. 全局文字颜色修复 */
+    html, body, [data-testid="stVerticalBlock"] {
+        color: #e2e8f0 !important; /* 浅灰色文字，比纯白柔和，更护眼 */
+    }
+
+    /* 2. 聊天气泡内部文字强化 */
+    .stChatMessage {
+        background: #1e293b;
+        border-radius: 12px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border-left: 4px solid #6366f1;
+        color: #f8fafc !important; /* 确保对话框里的字是亮的 */
+    }
+
+    /* 3. Expander (决策过程) 文字修复 */
+    .st-ae {
+        color: #f8fafc !important;
+    }
+    
+    /* 4. 侧边栏文字和标签颜色 */
+    [data-testid="stSidebar"] .stMarkdown, 
+    [data-testid="stSidebar"] label {
+        color: #cbd5e1 !important;
+    }
+
+    /* 5. 输入框文字颜色 */
+    .stTextInput input {
+        color: #ffffff !important;
+    }
+
+    /* 原有的其他样式保持不变... */
     .main-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 2rem; border-radius: 15px; margin-bottom: 2rem;
         box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
     }
-    .main-header h1 { color: white; font-size: 2.5rem; font-weight: 700; margin: 0; }
-    .main-header p { color: #e0e7ff; font-size: 1.1rem; margin: 0.5rem 0 0 0; }
-    [data-testid="stSidebar"] { background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%); }
-    .stChatMessage { background: var(--card-bg); border-radius: 12px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid var(--primary-color); }
-    .stButton>button { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; width: 100%; }
 </style>
 """, unsafe_allow_html=True)
 
