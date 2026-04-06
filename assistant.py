@@ -14,42 +14,32 @@ st.set_page_config(
 # ===== 2. 自定义高级 CSS =====
 st.markdown("""
 <style>
-    /* 1. 全局文字颜色修复 */
-    html, body, [data-testid="stVerticalBlock"] {
-        color: #e2e8f0 !important; /* 浅灰色文字，比纯白柔和，更护眼 */
-    }
-
-    /* 2. 聊天气泡内部文字强化 */
-    .stChatMessage {
-        background: #1e293b;
-        border-radius: 12px;
-        padding: 1rem;
-        margin: 0.5rem 0;
-        border-left: 4px solid #6366f1;
-        color: #f8fafc !important; /* 确保对话框里的字是亮的 */
-    }
-
-    /* 3. Expander (决策过程) 文字修复 */
-    .st-ae {
-        color: #f8fafc !important;
-    }
-    
-    /* 4. 侧边栏文字和标签颜色 */
+    /* 1. 侧边栏全局文字加亮 */
     [data-testid="stSidebar"] .stMarkdown, 
-    [data-testid="stSidebar"] label {
-        color: #cbd5e1 !important;
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] p {
+        color: #f1f5f9 !important; /* 换成非常亮的灰白色 */
+        font-weight: 500; /* 加粗一点点，更清晰 */
     }
 
-    /* 5. 输入框文字颜色 */
-    .stTextInput input {
+    /* 2. 侧边栏标题特殊颜色（青紫色，呼应主题） */
+    [data-testid="stSidebar"] h1, 
+    [data-testid="stSidebar"] h2, 
+    [data-testid="stSidebar"] h3 {
+        color: #a5b4fc !important; /* 亮紫色标题 */
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    }
+
+    /* 3. 侧边栏 Selectbox 和上传组件的文字 */
+    [data-testid="stSidebar"] .stSelectbox div div,
+    [data-testid="stSidebar"] .stFileUploader section div {
         color: #ffffff !important;
     }
 
-    /* 原有的其他样式保持不变... */
-    .main-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem; border-radius: 15px; margin-bottom: 2rem;
-        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    /* 4. 这里的 Expander 头部也要亮一点 */
+    [data-testid="stSidebar"] .st-ae summary {
+        color: #f8fafc !important;
+        font-weight: 600;
     }
 </style>
 """, unsafe_allow_html=True)
