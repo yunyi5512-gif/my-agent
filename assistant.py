@@ -14,6 +14,7 @@ st.set_page_config(
 # ===== 2. 自定义高级 CSS =====
 st.markdown("""
 <style>
+    /* ===== 基础部分（保持原样）===== */
     :root { --primary-color: #6366f1; --bg-dark: #0f172a; --card-bg: #1e293b; }
     #MainMenu {visibility: hidden;} footer {visibility: hidden;}
     .main-header {
@@ -26,6 +27,37 @@ st.markdown("""
     [data-testid="stSidebar"] { background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%); }
     .stChatMessage { background: var(--card-bg); border-radius: 12px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid var(--primary-color); }
     .stButton>button { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; width: 100%; }
+
+    /* ===== 侧边栏文字专项加亮（仅针对你反馈的问题）===== */
+    
+    /* 1. 侧边栏所有常规文字（如：联网、存档、上传文档提示） */
+    [data-testid="stSidebar"] p, 
+    [data-testid="stSidebar"] label, 
+    [data-testid="stSidebar"] .stMarkdown {
+        color: #ffffff !important;
+        font-weight: 500 !important;
+    }
+
+    /* 2. 侧边栏小标题（如：控制中心、文件管理） */
+    [data-testid="stSidebar"] h1, 
+    [data-testid="stSidebar"] h2, 
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] .st-ae summary {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+    }
+
+    /* 3. 文件上传区域内部的文字（200MB... 那行） */
+    [data-testid="stFileUploader"] section div div,
+    [data-testid="stFileUploader"] small {
+        color: #ffffff !important;
+        opacity: 1 !important;
+    }
+
+    /* 4. 侧边栏按钮内的文字颜色强化 */
+    [data-testid="stSidebar"] button p {
+        color: #ffffff !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
