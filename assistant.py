@@ -2,7 +2,16 @@ import requests # 确保库的引入放在最前面
 import streamlit as st
 import json
 import os
+# 工具说明书：告诉 AI 你有哪些超能力
+TOOLS_DESC = """
+你现在拥有以下工具：
+1. [SEARCH]: 当用户询问实时信息、新闻、天气或需要搜索才能回答的问题时使用。
+2. [CALC]: 当用户需要进行复杂的数学计算或执行 Python 代码逻辑时使用。
+3. [FILE]: 当用户询问关于已上传文件内容的问题时使用。
+4. [CHAT]: 仅在简单的打招呼、闲聊或不需要外部信息时使用。
 
+请先分析用户意图，只回复对应的标签（如 [SEARCH]），不要说多余的话。
+"""
 # --- 1. 配置区 ---
 DEEPSEEK_KEY = os.getenv("OPENAI_API_KEY")
 TAVILY_KEY = os.getenv("TAVILY_API_KEY")
@@ -16,26 +25,23 @@ if not DEEPSEEK_KEY or not TAVILY_KEY:
 
 # --- 3. 增强版工具函数 (已融合 Claude 的错误处理优化) ---
 
-def check_intent(user_query):
-    """意图识别：判断是否需要联网"""
+def dispatch_center(user_query):
+    """调度中心：让 AI 自己选工具"""
     headers = {"Authorization": f"Bearer {DEEPSEEK_KEY}", "Content-Type": "application/json"}
     payload = {
         "model": "deepseek-chat",
         "messages": [
-            {"role": "system", "content": "你是一个意图分类器。如果用户的问题涉及实时新闻、天气、最近发生的事件、或需要搜索才能回答的信息，请只回复'YES'，否则只回复'NO'。"},
-            {"role": "user", "content": user_query}
+            {"role": "system", "content": TOOLS_DESC},
+            {"role": "user", "content": f"用户输入：{user_query}\n请选择最合适的工具标签："}
         ],
-        "max_tokens": 5
+        "max_tokens": 10
     }
-    # 使用 Claude 的 try...except 风格，增加 raise_for_status
     try:
         r = requests.post(BASE_URL, headers=headers, json=payload, timeout=5)
-        r.raise_for_status() # 检查 HTTP 错误 (如401, 500)
-        return "YES" in r.json()["choices"][0]["message"]["content"].strip().upper()
-    except Exception as e:
-        # 如果报错，静默失败（不联网），确保主程序不死
-        # 也可以改成 st.warning(f"意图识别抖动: {e}") 来提醒用户
-        return False
+        decision = r.json()["choices"][0]["message"]["content"].strip().upper()
+        return decision
+    except:
+        return "[CHAT]"
 
 def get_web_info(query):
     """联网搜索"""
@@ -95,21 +101,34 @@ for m in st.session_state.messages:
     if m["role"] != "system" and not m["content"].startswith("【文件背景】："):
         with st.chat_message(m["role"]): st.markdown(m["content"])
 
-if prompt := st.chat_input("说点什么？"):
+if prompt := st.chat_input("指令下达..."):
     with st.chat_message("user"): st.markdown(prompt)
     
     final_prompt = prompt
-    # 自动识别是否需要联网
-    if is_web_enabled:
-        with st.spinner("🧠 正在思考是否需要联网..."):
-            if check_intent(prompt):
-                with st.status("🌐 AI 决定联网搜搜...", expanded=False):
-                    web_results = get_web_info(prompt)
-                    final_prompt = f"【参考资料】:\n{web_results}\n\n【用户问题】: {prompt}"
-                    st.write("🔍 搜到了！")
+    # --- 智能调度阶段 ---
+    with st.spinner("🤖 Agent 正在思考决策..."):
+        tool_choice = dispatch_center(prompt)
+    
+    # --- 根据 AI 的决策执行工具 ---
+    if "[SEARCH]" in tool_choice and is_web_enabled:
+        with st.status("🌐 正在调用搜索工具...", expanded=False):
+            res = get_web_info(prompt)
+            final_prompt = f"【联网插件返回】：\n{res}\n\n问题：{prompt}"
+    
+    elif "[FILE]" in tool_choice:
+        with st.status("📁 正在检索本地文件...", expanded=False):
+            # 这里可以保留你之前的逻辑，或者后续升级成 Claude 说的向量搜索
+            st.write("已关联文件上下文进行回答")
 
+    elif "[CALC]" in tool_choice:
+        with st.status("🔢 正在准备计算环境...", expanded=False):
+            # 这里甚至可以加一个简单的 eval() 逻辑，或者让 AI 模拟计算
+            final_prompt = f"请作为高级数学专家，精确计算以下问题：{prompt}"
+
+    # --- 统一展示和记忆 ---
     st.session_state.messages.append({"role": "user", "content": prompt})
-
+    
+    # ... 后面的流式请求代码保持不变，但记得发送的是 final_prompt ...
     # 发起 DeepSeek 请求
     with st.chat_message("assistant"):
         placeholder = st.empty()
