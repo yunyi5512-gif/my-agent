@@ -4,13 +4,13 @@ import json
 import os
 
 # --- 1. 配置区 ---
-OPENAI_KEY = os.getenv("OPENAI_API_KEY")
+DEEPSEEK_KEY = os.getenv("OPENAI_API_KEY")
 TAVILY_KEY = os.getenv("TAVILY_API_KEY")
 BASE_URL = "https://api.deepseek.com/chat/completions"
 DB_FILE = "chat_history.json"
 
 # --- 2. 安全检查：如果Key为空，直接停止 app 并报错 ---
-if not OPENAI_KEY or not TAVILY_KEY:
+if not DEEPSEEK_KEY or not TAVILY_KEY:
     st.error("⚠️ Secrets 里的 OPENAI_API_KEY 或 TAVILY_API_KEY 貌似没设好？快去 Streamlit 后台瞧瞧。")
     st.stop() # 彻底停止应用
 
