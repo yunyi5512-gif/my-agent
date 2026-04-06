@@ -14,7 +14,7 @@ st.set_page_config(
 # ===== 2. 自定义高级 CSS =====
 st.markdown("""
 <style>
-    /* ===== 基础部分（保持原样）===== */
+    /* ===== 基础布局（保持原样）===== */
     :root { --primary-color: #6366f1; --bg-dark: #0f172a; --card-bg: #1e293b; }
     #MainMenu {visibility: hidden;} footer {visibility: hidden;}
     .main-header {
@@ -28,34 +28,34 @@ st.markdown("""
     .stChatMessage { background: var(--card-bg); border-radius: 12px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid var(--primary-color); }
     .stButton>button { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; width: 100%; }
 
-    /* ===== 侧边栏文字专项加亮（仅针对你反馈的问题）===== */
+    /* ===== 全局字体亮化（中间对话区 + 决策过程）===== */
     
-    /* 1. 侧边栏所有常规文字（如：联网、存档、上传文档提示） */
+    /* 1. 强制中间聊天区域的所有文字为白色 */
+    .stChatMessage, .stChatMessage p, .stChatMessage span, .stChatMessage div {
+        color: #ffffff !important;
+        line-height: 1.6;
+    }
+
+    /* 2. 决策过程（Expander）内部文字加亮 */
+    .st-ae summary, .st-ae p, .st-ae div {
+        color: #ffffff !important;
+    }
+
+    /* 3. 侧边栏文字加亮（同步你之前的要求） */
     [data-testid="stSidebar"] p, 
-    [data-testid="stSidebar"] label, 
-    [data-testid="stSidebar"] .stMarkdown {
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] h3 {
         color: #ffffff !important;
-        font-weight: 500 !important;
     }
 
-    /* 2. 侧边栏小标题（如：控制中心、文件管理） */
-    [data-testid="stSidebar"] h1, 
-    [data-testid="stSidebar"] h2, 
-    [data-testid="stSidebar"] h3,
-    [data-testid="stSidebar"] .st-ae summary {
-        color: #ffffff !important;
-        font-weight: 700 !important;
-    }
-
-    /* 3. 文件上传区域内部的文字（200MB... 那行） */
+    /* 4. 文件上传提示文字加亮 */
     [data-testid="stFileUploader"] section div div,
     [data-testid="stFileUploader"] small {
         color: #ffffff !important;
-        opacity: 1 !important;
     }
 
-    /* 4. 侧边栏按钮内的文字颜色强化 */
-    [data-testid="stSidebar"] button p {
+    /* 5. 输入框文字颜色 */
+    .stTextInput input {
         color: #ffffff !important;
     }
 </style>
