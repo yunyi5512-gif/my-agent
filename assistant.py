@@ -129,7 +129,7 @@ if prompt := st.chat_input("指令下达..."):
             # 这里可以保留你之前的逻辑，或者后续升级成 Claude 说的向量搜索
             st.write("已关联文件上下文进行回答")
 
-        elif "[CALC]" in tool_choice:
+    elif "[CALC]" in tool_choice:
         with st.status("🔢 正在进行精准计算...", expanded=False):
             # 这里的逻辑是：既然是计算，我们就给 AI 一个更明确的限制
             final_prompt = f"请作为精简的计算助手，直接计算并给出结果，严禁展示推导过程。问题：{prompt}"
