@@ -4,13 +4,13 @@ import json
 import os
 # 工具说明书：告诉 AI 你有哪些超能力
 TOOLS_DESC = """
-你现在拥有以下工具：
-1. [SEARCH]: 当用户询问实时信息、新闻、天气或需要搜索才能回答的问题时使用。
-2. [CALC]: 当用户需要进行复杂的数学计算或执行 Python 代码逻辑时使用。
-3. [FILE]: 当用户询问关于已上传文件内容的问题时使用。
-4. [CHAT]: 仅在简单的打招呼、闲聊或不需要外部信息时使用。
+你是一个高效的调度员。请根据用户输入选择标签：
+- [SEARCH]: 涉及实时新闻、具体事实查证（如：今天金价、周杰伦近况）。
+- [CALC]: 涉及数学计算、代码逻辑分析（如：2*3等于几、计算复利）。要求：直接给出计算结果，不要进行冗长的公理推导。
+- [FILE]: 涉及对用户之前上传文件内容的提问。
+- [CHAT]: 日常打招呼、闲聊、无需外部数据。
 
-请先分析用户意图，只回复对应的标签（如 [SEARCH]），不要说多余的话。
+只回复标签，严禁多言。
 """
 # --- 1. 配置区 ---
 DEEPSEEK_KEY = os.getenv("OPENAI_API_KEY")
@@ -108,7 +108,16 @@ if prompt := st.chat_input("指令下达..."):
     # --- 智能调度阶段 ---
     with st.spinner("🤖 Agent 正在思考决策..."):
         tool_choice = dispatch_center(prompt)
-    
+        # 在聊天记录上方加一个“思考过程”展示
+    with st.expander("👁️ 查看 Agent 决策过程", expanded=False):
+        st.write(f"**用户输入**: {prompt}")
+        st.write(f"**识别工具**: {tool_choice}")
+        if "[SEARCH]" in tool_choice:
+            st.info("决策路径：需要实时数据 -> 激活 Tavily 搜索插件")
+        elif "[CALC]" in tool_choice:
+            st.info("决策路径：涉及数理逻辑 -> 激活计算优化模式")
+        else:
+            st.info("决策路径：语义理解 -> 直接回复")
     # --- 根据 AI 的决策执行工具 ---
     if "[SEARCH]" in tool_choice and is_web_enabled:
         with st.status("🌐 正在调用搜索工具...", expanded=False):
@@ -120,10 +129,11 @@ if prompt := st.chat_input("指令下达..."):
             # 这里可以保留你之前的逻辑，或者后续升级成 Claude 说的向量搜索
             st.write("已关联文件上下文进行回答")
 
-    elif "[CALC]" in tool_choice:
-        with st.status("🔢 正在准备计算环境...", expanded=False):
-            # 这里甚至可以加一个简单的 eval() 逻辑，或者让 AI 模拟计算
-            final_prompt = f"请作为高级数学专家，精确计算以下问题：{prompt}"
+        elif "[CALC]" in tool_choice:
+        with st.status("🔢 正在进行精准计算...", expanded=False):
+            # 这里的逻辑是：既然是计算，我们就给 AI 一个更明确的限制
+            final_prompt = f"请作为精简的计算助手，直接计算并给出结果，严禁展示推导过程。问题：{prompt}"
+            st.write("计算引擎已就绪")
 
     # --- 统一展示和记忆 ---
     st.session_state.messages.append({"role": "user", "content": prompt})
