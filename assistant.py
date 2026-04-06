@@ -12,20 +12,15 @@ DB_FILE = "chat_history.json"
 # --- 2. 工具函数 (必须放在主逻辑前面) ---
 
 def check_intent(user_query):
-    """意图识别：判断是否需要联网"""
-    headers = {"Authorization": f"Bearer {DEEPSEEK_KEY}", "Content-Type": "application/json"}
-    payload = {
-        "model": "deepseek-chat",
-        "messages": [
-            {"role": "system", "content": "你是一个意图分类器。如果用户的问题涉及实时新闻、天气、最近发生的事件、或需要搜索才能回答的信息，请只回复'YES'，否则只回复'NO'。"},
-            {"role": "user", "content": user_query}
-        ],
-        "max_tokens": 5
-    }
+    # 建议改为：
     try:
         r = requests.post(BASE_URL, headers=headers, json=payload, timeout=5)
+        r.raise_for_status()  # 检查HTTP错误
         return "YES" in r.json()["choices"][0]["message"]["content"].strip().upper()
-    except:
+    except requests.RequestException as e:
+        st.warning(f"意图识别失败: {e}")
+        return False
+    except (KeyError, IndexError):
         return False
 
 def get_web_info(query):
