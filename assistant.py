@@ -14,39 +14,18 @@ st.set_page_config(
 # ===== 2. 自定义高级 CSS =====
 st.markdown("""
 <style>
-    /* 1. 侧边栏所有文本强力亮化 */
-    [data-testid="stSidebar"] * {
-        color: #ffffff !important; /* 直接强制所有子元素为白色 */
+    :root { --primary-color: #6366f1; --bg-dark: #0f172a; --card-bg: #1e293b; }
+    #MainMenu {visibility: hidden;} footer {visibility: hidden;}
+    .main-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 2rem; border-radius: 15px; margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
     }
-
-    /* 2. 侧边栏标题（加点紫色发光感，更高级） */
-    [data-testid="stSidebar"] h1, 
-    [data-testid="stSidebar"] h2, 
-    [data-testid="stSidebar"] h3 {
-        color: #c7d2fe !important; 
-        font-weight: 800 !important;
-        text-shadow: 0px 0px 8px rgba(99, 102, 241, 0.4);
-    }
-
-    /* 3. 专门针对文件上传器的提示文字（200MB per file... 那行） */
-    [data-testid="stFileUploader"] small {
-        color: #e2e8f0 !important;
-        font-size: 0.9rem !important;
-    }
-
-    /* 4. 侧边栏按钮文字（清空记忆等） */
-    [data-testid="stSidebar"] .stButton button p {
-        color: #ffffff !important;
-        font-weight: 700 !important;
-        font-size: 1rem !important;
-    }
-
-    /* 5. 侧边栏 Toggle 开关旁边的文字 */
-    [data-testid="stSidebar"] .stCheckbox p,
-    [data-testid="stSidebar"] .stToggle p {
-        font-weight: 600 !important;
-        color: #ffffff !important;
-    }
+    .main-header h1 { color: white; font-size: 2.5rem; font-weight: 700; margin: 0; }
+    .main-header p { color: #e0e7ff; font-size: 1.1rem; margin: 0.5rem 0 0 0; }
+    [data-testid="stSidebar"] { background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%); }
+    .stChatMessage { background: var(--card-bg); border-radius: 12px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid var(--primary-color); }
+    .stButton>button { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; width: 100%; }
 </style>
 """, unsafe_allow_html=True)
 
