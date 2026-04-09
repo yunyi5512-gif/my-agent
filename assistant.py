@@ -5,7 +5,7 @@ import os
 
 # ===== 1. 页面配置（必须放最前面）=====
 st.set_page_config(
-    page_title="assistant Agent",
+    page_title="Deepseek Pro Agent",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -33,6 +33,21 @@ st.markdown("""
     [data-testid="stSidebar"] p, [data-testid="stSidebar"] label, [data-testid="stSidebar"] h3 { color: #ffffff !important; }
     [data-testid="stFileUploader"] section div div, [data-testid="stFileUploader"] small { color: #ffffff !important; }
     .stTextInput input { color: #ffffff !important; }
+    
+    /* 1. 下拉框选中的文字颜色 */
+    div[data-baseweb="select"] div {
+        color: #1e293b !important; /* 深蓝色，比纯黑更有质感 */
+    }
+
+    /* 2. 下拉菜单展开后的选项文字颜色 */
+    ul[data-unittest="stSelectboxVirtualList"] li {
+        color: #1e293b !important;
+    }
+
+    /* 3. 如果你的侧边栏 Selectbox 还是看不清，再补一个这个 */
+    [data-testid="stSidebar"] [data-baseweb="select"] * {
+        color: #1e293b !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -50,9 +65,9 @@ ENGINE_CONFIG = {
         "model": "deepseek-chat"
     },
     "Codex-Plus": {
-        "url": "https://api.codxcoding.com/v1/chat/completions",
+        "url": "https://api.duckcoding.ai",
         "key": CODEX_KEY,
-        "model": "gpt-5" # 请根据中转站后台实际支持的模型名修改
+        "model": "gpt-5.4" # 请根据中转站后台实际支持的模型名修改
     }
 }
 
