@@ -73,7 +73,7 @@ ENGINE_CONFIG = {
         "model": "deepseek-chat"
     },
     "Codex-Plus": {
-        "url": "https://api.duckcoding.ai/v1",
+        "url": "https://api.duckcoding.ai/v1/chat/completions",
         "key": CODEX_KEY,
         "model": "gpt-5.4" # 请根据中转站后台实际支持的模型名修改
     }
