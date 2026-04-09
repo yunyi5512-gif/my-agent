@@ -44,17 +44,22 @@ st.markdown("""
         color: #1e293b !important;
     }
 
-    /* 3. 如果你的侧边栏 Selectbox 还是看不清，再补一个这个 */
-    [data-testid="stSidebar"] [data-baseweb="select"] * {
+        /* ===== 终极修复：下拉框全文字黑化 ===== */
+    
+    /* 1. 彻底锁定侧边栏所有下拉框的文字颜色 */
+    [data-testid="stSidebar"] div[data-baseweb="select"] * {
+        color: #1e293b !important;
+        -webkit-text-fill-color: #1e293b !important; /* 兼容某些浏览器的强制填色 */
+    }
+
+    /* 2. 专门锁定“当前核心”那四个字的容器 */
+    div[data-baseweb="select"] span {
         color: #1e293b !important;
     }
-        /* 强制下拉框文字为黑色，防止白底白字 */
-    div[data-baseweb="select"] * {
-        color: #000000 !important;
-    }
-    /* 下拉列表展开后的文字也设为黑色 */
-    div[role="listbox"] * {
-        color: #000000 !important;
+
+    /* 3. 展开下拉列表后的文字（也要黑） */
+    div[role="listbox"] div {
+        color: #1e293b !important;
     }
 </style>
 """, unsafe_allow_html=True)
