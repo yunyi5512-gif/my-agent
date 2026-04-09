@@ -60,6 +60,33 @@ st.markdown("""
     [data-testid="stSidebar"] div[data-baseweb="select"] span {
         color: #1e293b !important; /* 这里是选中的内容，强制黑字 */
     }
+        /* ===== 专门修复代码框（Code Block）===== */
+    
+    /* 1. 强制代码框背景为深色 */
+    code {
+        background-color: #0f172a !important; /* 深蓝色背景 */
+        color: #e2e8f0 !important;           /* 浅灰色文字 */
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+    }
+
+    /* 2. 针对多行代码块容器 */
+    pre {
+        background-color: #0f172a !important;
+        border: 1px solid #334155;
+        border-radius: 10px;
+        padding: 1rem !important;
+    }
+
+    /* 3. 修复代码高亮的颜色冲突 */
+    pre code span {
+        color: inherit !important; /* 允许语法高亮插件自己配色 */
+    }
+
+    /* 4. 解决复制按钮等小图标的显示 */
+    button[title="Copy to clipboard"] {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
