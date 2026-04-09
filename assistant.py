@@ -34,32 +34,31 @@ st.markdown("""
     [data-testid="stFileUploader"] section div div, [data-testid="stFileUploader"] small { color: #ffffff !important; }
     .stTextInput input { color: #ffffff !important; }
     
-    /* 1. 下拉框选中的文字颜色 */
-    div[data-baseweb="select"] div {
-        color: #1e293b !important; /* 深蓝色，比纯黑更有质感 */
-    }
-
-    /* 2. 下拉菜单展开后的选项文字颜色 */
-    ul[data-unittest="stSelectboxVirtualList"] li {
-        color: #1e293b !important;
-    }
-
-        /* ===== 终极修复：下拉框全文字黑化 ===== */
+       /* ===== 终极降维打击：彻底解决下拉框白字问题 ===== */
     
-    /* 1. 彻底锁定侧边栏所有下拉框的文字颜色 */
-    [data-testid="stSidebar"] div[data-baseweb="select"] * {
+    /* 1. 强制覆盖所有下拉框容器内的文字颜色 */
+    div[data-baseweb="select"] * {
         color: #1e293b !important;
-        -webkit-text-fill-color: #1e293b !important; /* 兼容某些浏览器的强制填色 */
+        fill: #1e293b !important;
     }
 
-    /* 2. 专门锁定“当前核心”那四个字的容器 */
-    div[data-baseweb="select"] span {
+    /* 2. 针对选中的那个具体值（解决白底白字核心问题） */
+    div[data-testid="stSelectbox"] div[data-baseweb="select"] div {
         color: #1e293b !important;
     }
 
-    /* 3. 展开下拉列表后的文字（也要黑） */
-    div[role="listbox"] div {
+    /* 3. 针对下拉列表弹窗里的每一行文字 */
+    div[role="listbox"] ul li * {
         color: #1e293b !important;
+    }
+
+    /* 4. 强制去除侧边栏对下拉框文字的白色干扰 */
+    [data-testid="stSidebar"] .stSelectbox label p {
+        color: #ffffff !important; /* 这里是标题，保持白色 */
+    }
+    
+    [data-testid="stSidebar"] div[data-baseweb="select"] span {
+        color: #1e293b !important; /* 这里是选中的内容，强制黑字 */
     }
 </style>
 """, unsafe_allow_html=True)
