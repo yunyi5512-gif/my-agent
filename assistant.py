@@ -48,6 +48,14 @@ st.markdown("""
     [data-testid="stSidebar"] [data-baseweb="select"] * {
         color: #1e293b !important;
     }
+        /* 强制下拉框文字为黑色，防止白底白字 */
+    div[data-baseweb="select"] * {
+        color: #000000 !important;
+    }
+    /* 下拉列表展开后的文字也设为黑色 */
+    div[role="listbox"] * {
+        color: #000000 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -65,7 +73,7 @@ ENGINE_CONFIG = {
         "model": "deepseek-chat"
     },
     "Codex-Plus": {
-        "url": "https://api.duckcoding.ai",
+        "url": "https://api.duckcoding.ai/v1",
         "key": CODEX_KEY,
         "model": "gpt-5.4" # 请根据中转站后台实际支持的模型名修改
     }
