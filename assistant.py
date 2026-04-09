@@ -5,16 +5,15 @@ import os
 
 # ===== 1. 页面配置（必须放最前面）=====
 st.set_page_config(
-    page_title="DeepSeek Pro Agent",
+    page_title="assistant Agent",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ===== 2. 自定义高级 CSS =====
+# ===== 2. 自定义高级 CSS（保持你的全亮白字体样式） =====
 st.markdown("""
 <style>
-    /* ===== 基础布局（保持原样）===== */
     :root { --primary-color: #6366f1; --bg-dark: #0f172a; --card-bg: #1e293b; }
     #MainMenu {visibility: hidden;} footer {visibility: hidden;}
     .main-header {
@@ -28,73 +27,65 @@ st.markdown("""
     .stChatMessage { background: var(--card-bg); border-radius: 12px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid var(--primary-color); }
     .stButton>button { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; width: 100%; }
 
-    /* ===== 全局字体亮化（中间对话区 + 决策过程）===== */
-    
-    /* 1. 强制中间聊天区域的所有文字为白色 */
-    .stChatMessage, .stChatMessage p, .stChatMessage span, .stChatMessage div {
-        color: #ffffff !important;
-        line-height: 1.6;
-    }
-
-    /* 2. 决策过程（Expander）内部文字加亮 */
-    .st-ae summary, .st-ae p, .st-ae div {
-        color: #ffffff !important;
-    }
-
-    /* 3. 侧边栏文字加亮（同步你之前的要求） */
-    [data-testid="stSidebar"] p, 
-    [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] h3 {
-        color: #ffffff !important;
-    }
-
-    /* 4. 文件上传提示文字加亮 */
-    [data-testid="stFileUploader"] section div div,
-    [data-testid="stFileUploader"] small {
-        color: #ffffff !important;
-    }
-
-    /* 5. 输入框文字颜色 */
-    .stTextInput input {
-        color: #ffffff !important;
-    }
+    /* 全局字体亮化 */
+    .stChatMessage, .stChatMessage p, .stChatMessage span, .stChatMessage div { color: #ffffff !important; line-height: 1.6; }
+    .st-ae summary, .st-ae p, .st-ae div { color: #ffffff !important; }
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] label, [data-testid="stSidebar"] h3 { color: #ffffff !important; }
+    [data-testid="stFileUploader"] section div div, [data-testid="stFileUploader"] small { color: #ffffff !important; }
+    .stTextInput input { color: #ffffff !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ===== 3. 配置与调度指令 =====
-DEEPSEEK_KEY = os.getenv("DEEPSEEK_API_KEY") # 建议统一用这个名
+# ===== 3. 配置区（双引擎映射） =====
+# 请在 Streamlit Secrets 中配置这三个 Key
+DEEPSEEK_KEY = os.getenv("DEEPSEEK_API_KEY") # 或你习惯的名字
+CODEX_KEY = os.getenv("CODEX_API_KEY")    # Duckcoding 中转站 Key
 TAVILY_KEY = os.getenv("TAVILY_API_KEY")
-BASE_URL = "https://api.deepseek.com/chat/completions"
+
+# 双引擎映射表
+ENGINE_CONFIG = {
+    "DeepSeek-V3": {
+        "url": "https://api.deepseek.com/chat/completions",
+        "key": DEEPSEEK_KEY,
+        "model": "deepseek-chat"
+    },
+    "Codex-Plus": {
+        "url": "https://api.codxcoding.com/v1/chat/completions",
+        "key": CODEX_KEY,
+        "model": "gpt-5" # 请根据中转站后台实际支持的模型名修改
+    }
+}
+
 DB_FILE = "chat_history.json"
 
 TOOLS_DESC = """
 你是一个高效的调度员。请根据用户输入选择标签：
-- [SEARCH]: 涉及实时新闻、具体事实查证。
-- [CALC]: 涉及数学计算、代码逻辑。直接给出结果，不要冗长推导。
+- [SEARCH]: 涉及实时新闻、事实查证。
+- [CALC]: 涉及数学计算。直接给出结果，禁止推导过程！
 - [FILE]: 涉及对上传文件内容的提问。
-- [CHAT]: 日常打招呼、闲聊。
+- [CHAT]: 日常闲聊。
 只回复标签，严禁多言。
 """
 
 # 安全检查
-if not DEEPSEEK_KEY or not TAVILY_KEY:
-    st.error("⚠️ API Keys 缺失，请检查 Secrets 配置。")
+if not TAVILY_KEY:
+    st.error("⚠️ TAVILY_API_KEY 缺失，请检查配置。")
     st.stop()
 
 # ===== 4. 核心功能函数 =====
 
-def dispatch_center(user_query):
-    headers = {"Authorization": f"Bearer {DEEPSEEK_KEY}", "Content-Type": "application/json"}
+def dispatch_center(user_query, api_key, url, model):
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     payload = {
-        "model": "deepseek-chat",
+        "model": model,
         "messages": [
             {"role": "system", "content": TOOLS_DESC},
-            {"role": "user", "content": f"用户输入：{user_query}\n请选择标签："}
+            {"role": "user", "content": f"请选择标签：{user_query}"}
         ],
         "max_tokens": 10
     }
     try:
-        r = requests.post(BASE_URL, headers=headers, json=payload, timeout=5)
+        r = requests.post(url, headers=headers, json=payload, timeout=5)
         return r.json()["choices"][0]["message"]["content"].strip().upper()
     except: return "[CHAT]"
 
@@ -105,90 +96,76 @@ def get_web_info(query):
         response = requests.post(url, json=data, timeout=10)
         results = response.json().get("results", [])
         return "\n".join([f"来源: {r['url']}\n摘要: {r['content']}" for r in results])
-    except: return "联网搜索暂时不可用。"
-
-def load_history():
-    if os.path.exists(DB_FILE):
-        with open(DB_FILE, "r", encoding="utf-8") as f:
-            history = json.load(f)
-            return [history[0]] + history[-10:] if len(history) > 11 else history
-    return [{"role": "system", "content": "你是一个既能联网又能分析文件的全能助手。"}]
+    except: return "联网搜索暂不可用。"
 
 # ===== 5. 界面布局与逻辑 =====
 
-# 初始化
 if "messages" not in st.session_state:
-    st.session_state.messages = load_history()
+    st.session_state.messages = [{"role": "system", "content": "全能助手已就绪。"}]
 if "last_tool" not in st.session_state:
     st.session_state.last_tool = "等待指令"
 
-# 顶部横幅
-st.markdown('<div class="main-header"><h1>🤖 DeepSeek Pro Agent</h1><p>智能调度 · 联网搜索 · 文件分析 · 精准计算</p ></div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header"><h1>🤖 Pro Agent Multi-Core</h1><p>双引擎驱动 · 智能调度 · 高级视觉版</p ></div>', unsafe_allow_html=True)
 
 # 侧边栏
 with st.sidebar:
+    st.markdown("### 🤖 引擎切换")
+    selected_engine = st.selectbox("当前核心", list(ENGINE_CONFIG.keys()))
+    
+    # 动态获取当前引擎参数
+    current_cfg = ENGINE_CONFIG[selected_engine]
+    
+    st.divider()
     st.markdown("### ⚡ 控制中心")
     col_a, col_b = st.columns(2)
     with col_a: is_web = st.toggle("🌍 联网", value=True)
     with col_b: auto_save = st.toggle("💾 存档", value=True)
     
-    st.divider()
     with st.expander("📁 文件管理", expanded=True):
         uploaded_file = st.file_uploader("上传文档", type=['txt', 'py', 'md'])
-        if uploaded_file: st.success(f"✅ {uploaded_file.name}")
 
     if st.button("🗑️ 清空记忆"):
         st.session_state.messages = [st.session_state.messages[0]]
-        if os.path.exists(DB_FILE): os.remove(DB_FILE)
         st.rerun()
 
-# 主布局分列
 col1, col2 = st.columns([3, 1])
 
 with col1:
-    # 展示历史对话
     for m in st.session_state.messages:
-        if m["role"] != "system" and not m["content"].startswith("【文件背景】："):
+        if m["role"] != "system":
             with st.chat_message(m["role"]): st.markdown(m["content"])
 
     if prompt := st.chat_input("指令下达..."):
         with st.chat_message("user"): st.markdown(prompt)
         
-        final_prompt = prompt
-        # 调度决策
-        with st.spinner("🤖 Agent 正在决策路径..."):
-            tool_choice = dispatch_center(prompt)
+        # 1. 决策
+        with st.spinner(f"正在通过 {selected_engine} 决策..."):
+            tool_choice = dispatch_center(prompt, current_cfg['key'], current_cfg['url'], current_cfg['model'])
             st.session_state.last_tool = tool_choice
         
-        with st.expander("👁️ 查看 Agent 决策过程", expanded=False):
-            st.write(f"**识别工具**: `{tool_choice}`")
-            if "[SEARCH]" in tool_choice: st.info("路径：实时数据需求 -> 激活搜索引擎")
-            elif "[CALC]" in tool_choice: st.info("路径：数理逻辑 -> 激活精准计算模式")
-            else: st.info("路径：常规语义理解")
-
-        # 工具执行
+        # 2. 准备 Prompt
+        final_prompt = prompt
         if "[SEARCH]" in tool_choice and is_web:
             with st.status("🌐 联网搜索中...", expanded=False):
                 res = get_web_info(prompt)
-                final_prompt = f"【联网插件返回】：\n{res}\n\n问题：{prompt}"
-        elif "[FILE]" in tool_choice:
-            with st.status("📁 检索本地文件...", expanded=False):
-                st.write("已关联文件上下文")
+                final_prompt = f"【联网信息】：\n{res}\n\n请结合以上信息回答：{prompt}"
+        elif "[CALC]" in tool_choice:
+            final_prompt = f"你是精密计算器。请计算并直接给出数字结果，严禁推导：{prompt}"
 
         st.session_state.messages.append({"role": "user", "content": prompt})
 
-        # AI 回答
+        # 3. 回答
         with st.chat_message("assistant"):
             placeholder = st.empty()
             full_res = ""
-            headers = {"Authorization": f"Bearer {DEEPSEEK_KEY}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Bearer {current_cfg['key']}", "Content-Type": "application/json"}
             payload = {
-                "model": "deepseek-chat",
+                "model": current_cfg['model'],
                 "messages": st.session_state.messages[:-1] + [{"role": "user", "content": final_prompt}],
                 "stream": True
             }
             try:
-                response = requests.post(BASE_URL, headers=headers, json=payload, stream=True)
+                response = requests.post(current_cfg['url'], headers=headers, json=payload, stream=True)
                 for line in response.iter_lines():
                     if line:
                         decoded = line.decode("utf-8").replace("data: ", "")
@@ -200,14 +177,11 @@ with col1:
                         except: continue
                 placeholder.markdown(full_res)
                 st.session_state.messages.append({"role": "assistant", "content": full_res})
-                if auto_save:
-                    with open(DB_FILE, "w", encoding="utf-8") as f:
-                        json.dump(st.session_state.messages, f, ensure_ascii=False, indent=2)
             except Exception as e:
-                st.error(f"连接失败: {e}")
+                st.error(f"引擎响应失败: {e}")
 
 with col2:
-    st.markdown("### 📊 实时状态")
-    st.metric("对话轮次", len(st.session_state.messages))
-    st.metric("上次激活", st.session_state.last_tool)
-    st.info("Agent 运行正常")
+    st.markdown("### 📊 状态监控")
+    st.metric("核心引擎", selected_engine)
+    st.metric("上次动作", st.session_state.last_tool)
+    st.success(f"{selected_engine} 运行中")
