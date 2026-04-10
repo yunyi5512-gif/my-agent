@@ -27,7 +27,7 @@ st.markdown("""
 
 # ===== 2. 配置映射 =====
 DEEPSEEK_KEY = os.getenv("DEEPSEEK_API_KEY")
-CODEX_KEY = os.getenv("CODEX_KEY")
+CODEX_KEY = os.getenv("CODEX_API_KEY")
 TAVILY_KEY = os.getenv("TAVILY_API_KEY")
 
 ENGINE_CONFIG = {
