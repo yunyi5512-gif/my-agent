@@ -10,11 +10,40 @@ st.set_page_config(page_title="AI Multi-Core Study", layout="wide")
 st.markdown("""
 <style>
     :root { --bg-dark: #0f172a; }
-    .stChatMessage p { color: #ffffff !important; }
-    div[data-baseweb="select"] * { color: #1e293b !important; -webkit-text-fill-color: #1e293b !important; }
-    div[role="listbox"] * { color: #1e293b !important; }
-    code { background-color: #0f172a !important; color: #e2e8f0 !important; border-radius: 4px; }
-    pre { background-color: #0f172a !important; border: 1px solid #334155; border-radius: 10px; }
+
+    /* Light 模式：聊天文字黑色 */
+    .stChatMessage p {
+        color: #111827 !important;
+    }
+
+    /* Dark 模式：聊天文字白色 */
+    @media (prefers-color-scheme: dark) {
+        .stChatMessage p {
+            color: #ffffff !important;
+        }
+    }
+
+    div[data-baseweb="select"] * {
+        color: #1e293b !important;
+        -webkit-text-fill-color: #1e293b !important;
+    }
+
+    div[role="listbox"] * {
+        color: #1e293b !important;
+    }
+
+    code {
+        background-color: #0f172a !important;
+        color: #e2e8f0 !important;
+        border-radius: 4px;
+    }
+
+    pre {
+        background-color: #0f172a !important;
+        border: 1px solid #334155;
+        border-radius: 10px;
+    }
+
     .main-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 1.5rem;
