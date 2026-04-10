@@ -11,7 +11,7 @@ st.markdown("""
 <style>
     :root { --bg-dark: #0f172a; }
 
-    /* Light 模式：聊天文字黑色 */
+    /* Light 模式：普通聊天文字深色 */
     .stChatMessage,
     .stChatMessage p,
     .stChatMessage div,
@@ -23,7 +23,7 @@ st.markdown("""
         color: #111827 !important;
     }
 
-    /* Dark 模式：聊天文字白色 */
+    /* Dark 模式：普通聊天文字浅色 */
     @media (prefers-color-scheme: dark) {
         .stChatMessage,
         .stChatMessage p,
@@ -33,8 +33,21 @@ st.markdown("""
         .stMarkdown p,
         .stMarkdown div,
         .stMarkdown span {
-            color: #ffffff !important;
+            color: #f8fafc !important;
         }
+    }
+
+    /* 不要污染代码块里的文字颜色 */
+    .stMarkdown pre,
+    .stMarkdown pre *,
+    .stChatMessage pre,
+    .stChatMessage pre *,
+    .stMarkdown code,
+    .stMarkdown code *,
+    .stChatMessage code,
+    .stChatMessage code * {
+        color: #e2e8f0 !important;
+        -webkit-text-fill-color: #e2e8f0 !important;
     }
 
     div[data-baseweb="select"] * {
@@ -49,21 +62,36 @@ st.markdown("""
     code {
         background-color: #0f172a !important;
         color: #e2e8f0 !important;
+        -webkit-text-fill-color: #e2e8f0 !important;
         border-radius: 4px;
     }
 
     pre {
         background-color: #0f172a !important;
+        color: #e2e8f0 !important;
+        -webkit-text-fill-color: #e2e8f0 !important;
         border: 1px solid #334155;
         border-radius: 10px;
+        padding: 1rem;
+        overflow-x: auto;
+    }
+
+    pre code {
+        background: transparent !important;
+        color: #e2e8f0 !important;
+        -webkit-text-fill-color: #e2e8f0 !important;
     }
 
     .main-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 1.5rem;
         border-radius: 12px;
-        color: white;
+        color: white !important;
         margin-bottom: 1rem;
+    }
+
+    .main-header * {
+        color: white !important;
     }
 </style>
 """, unsafe_allow_html=True)
