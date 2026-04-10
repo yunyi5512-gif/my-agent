@@ -116,7 +116,11 @@ ENGINE_CONFIG = {
     }
 }
 
-# ===== 3. 工具函数 =====
+# ===== 3. 记忆参数 =====
+RECENT_MSG_LIMIT = 6       # 仅保留最近 6 条原始消息
+SUMMARY_TRIGGER = 12       # 消息达到 12 条后开始压缩摘要
+
+# ===== 4. 工具函数 =====
 def get_web_info(query):
     """Tavily 联网搜索"""
     if not TAVILY_KEY:
@@ -178,12 +182,35 @@ def dispatch_center(user_query, api_key, url, model):
     except Exception:
         return "[CHAT]"
 
+def get_recent_history(messages, limit=RECENT_MSG_LIMIT):
+    return messages[-limit:]
+
+def build_memory_system_prompt():
+    """构造低 token 的记忆提示"""
+    parts = ["你是一个学习助手，请结合长期记忆和近期上下文回答。"]
+
+    profile = st.session_state.user_profile
+    if profile.get("goal"):
+        parts.append(f"用户目标：{profile['goal']}")
+    if profile.get("preferences"):
+        parts.append(f"用户偏好：{profile['preferences']}")
+    if st.session_state.memory_summary:
+        parts.append(f"历史摘要：{st.session_state.memory_summary}")
+
+    return "\n".join(parts)
+
 def build_messages(history, final_prompt, uploaded_img, current_cfg):
     """构造发送给模型的 messages"""
     messages = []
 
-    # 历史对话
-    for m in history:
+    # 系统记忆
+    messages.append({
+        "role": "system",
+        "content": build_memory_system_prompt()
+    })
+
+    # 最近对话
+    for m in get_recent_history(history):
         messages.append({
             "role": m["role"],
             "content": m["content"]
@@ -225,8 +252,13 @@ def stream_chat(url, api_key, payload):
 
             try:
                 data = json.loads(line)
-                delta = data["choices"][0].get("delta", {})
-                content = delta.get("content", "")
+                choice = data["choices"][0]
+
+                content = ""
+                if "delta" in choice:
+                    content = choice["delta"].get("content", "")
+                elif "message" in choice:
+                    content = choice["message"].get("content", "")
 
                 if isinstance(content, str) and content:
                     yield content
@@ -234,7 +266,111 @@ def stream_chat(url, api_key, payload):
             except Exception:
                 continue
 
-# ===== 4. 界面交互 =====
+def update_user_profile(api_key, url, model):
+    """从最近对话里提取用户目标/偏好，尽量简短"""
+    if not st.session_state.messages:
+        return
+
+    recent = st.session_state.messages[-8:]
+    text_block = "\n".join([f"{m['role']}: {m['content']}" for m in recent])
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    prompt = f"""
+请从下面对话中提取稳定用户信息，并返回 JSON：
+{{
+  "goal": "用户长期目标，没有就空字符串",
+  "preferences": "用户回答偏好，没有就空字符串"
+}}
+
+要求：
+1. 只提取稳定信息
+2. 尽量简短
+3. 只返回 JSON，不要解释
+
+对话：
+{text_block}
+"""
+
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": False,
+        "max_tokens": 120
+    }
+
+    try:
+        r = requests.post(url, headers=headers, json=payload, timeout=20)
+        r.raise_for_status()
+        content = r.json()["choices"][0]["message"]["content"].strip()
+
+        data = json.loads(content)
+        if data.get("goal"):
+            st.session_state.user_profile["goal"] = data["goal"]
+        if data.get("preferences"):
+            st.session_state.user_profile["preferences"] = data["preferences"]
+    except Exception:
+        pass
+
+def update_memory_summary(api_key, url, model):
+    """把旧对话压缩成摘要，节省 token"""
+    if len(st.session_state.messages) < SUMMARY_TRIGGER:
+        return
+
+    old_messages = st.session_state.messages[:-RECENT_MSG_LIMIT]
+    if not old_messages:
+        return
+
+    text_block = "\n".join([f"{m['role']}: {m['content']}" for m in old_messages])
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    old_summary = st.session_state.memory_summary
+
+    prompt = f"""
+请把以下历史对话压缩成简洁摘要，保留：
+1. 用户正在做什么
+2. 用户目标
+3. 用户偏好
+4. 后续回答必须记住的重要上下文
+
+要求：
+- 控制在 120 字内
+- 如果已有旧摘要，请融合更新
+- 只输出摘要正文，不要解释
+
+旧摘要：
+{old_summary}
+
+历史对话：
+{text_block}
+"""
+
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": False,
+        "max_tokens": 180
+    }
+
+    try:
+        r = requests.post(url, headers=headers, json=payload, timeout=20)
+        r.raise_for_status()
+        summary = r.json()["choices"][0]["message"]["content"].strip()
+        st.session_state.memory_summary = summary
+
+        # 压缩完成后，仅保留最近几条原始消息
+        st.session_state.messages = st.session_state.messages[-RECENT_MSG_LIMIT:]
+    except Exception:
+        pass
+
+# ===== 5. 界面交互 =====
 with st.sidebar:
     st.markdown("### 🤖 引擎切换")
     selected_engine = st.selectbox("当前核心", list(ENGINE_CONFIG.keys()))
@@ -249,19 +385,35 @@ with st.sidebar:
         st.markdown("### 📸 视觉学习")
         uploaded_img = st.file_uploader("拍张照/传图", type=["png", "jpg", "jpeg"])
 
+    st.divider()
+    st.markdown("### 🧠 当前记忆")
+    st.caption(f"目标：{st.session_state.user_profile['goal']}" if "user_profile" in st.session_state else "目标：")
+    st.caption(f"偏好：{st.session_state.user_profile['preferences']}" if "user_profile" in st.session_state else "偏好：")
+    st.caption(f"摘要：{st.session_state.memory_summary[:60]}..." if "memory_summary" in st.session_state and st.session_state.memory_summary else "摘要：")
+
 st.markdown(
     '<div class="main-header"><h1>🤖 AI Study Ultimate</h1><p>联网 · 识图 · 双核引擎全开启</p></div>',
     unsafe_allow_html=True
 )
 
+# ===== 6. 会话状态初始化 =====
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
+if "memory_summary" not in st.session_state:
+    st.session_state.memory_summary = ""
+
+if "user_profile" not in st.session_state:
+    st.session_state.user_profile = {
+        "goal": "",
+        "preferences": ""
+    }
 
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-# ===== 5. 主逻辑 =====
+# ===== 7. 主逻辑 =====
 if prompt := st.chat_input("下达指令..."):
     if not current_cfg["key"]:
         st.error(f"{selected_engine} 未配置 API Key。")
@@ -287,7 +439,7 @@ if prompt := st.chat_input("下达指令..."):
                 search_res = get_web_info(prompt)
                 final_prompt = f"【实时联网信息】\n{search_res}\n\n请结合以上信息回答用户问题：{prompt}"
 
-    # 显示到历史里的是用户原始输入
+    # 记录用户原始输入
     st.session_state.messages.append({"role": "user", "content": prompt})
 
     # 2. 构造消息
@@ -319,6 +471,10 @@ if prompt := st.chat_input("下达指令..."):
 
             placeholder.markdown(full_res)
             st.session_state.messages.append({"role": "assistant", "content": full_res})
+
+            # 4. 更新用户画像 + 摘要记忆
+            update_user_profile(current_cfg["key"], current_cfg["url"], current_cfg["model"])
+            update_memory_summary(current_cfg["key"], current_cfg["url"], current_cfg["model"])
 
         except Exception as e:
             st.error(f"响应失败: {e}")
