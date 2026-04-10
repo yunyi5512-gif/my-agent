@@ -12,13 +12,27 @@ st.markdown("""
     :root { --bg-dark: #0f172a; }
 
     /* Light 模式：聊天文字黑色 */
-    .stChatMessage p {
+    .stChatMessage,
+    .stChatMessage p,
+    .stChatMessage div,
+    .stChatMessage span,
+    .stMarkdown,
+    .stMarkdown p,
+    .stMarkdown div,
+    .stMarkdown span {
         color: #111827 !important;
     }
 
     /* Dark 模式：聊天文字白色 */
     @media (prefers-color-scheme: dark) {
-        .stChatMessage p {
+        .stChatMessage,
+        .stChatMessage p,
+        .stChatMessage div,
+        .stChatMessage span,
+        .stMarkdown,
+        .stMarkdown p,
+        .stMarkdown div,
+        .stMarkdown span {
             color: #ffffff !important;
         }
     }
